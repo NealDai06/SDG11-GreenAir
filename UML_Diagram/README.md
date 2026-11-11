@@ -24,9 +24,10 @@ The diagram follows a layered design consisting of Controllers, Services, Reposi
 | Strategy Pattern | RecommendationStrategy, GeneralPublicStrategy, ChildrenStrategy, ElderlyStrategy | Provides different activity recommendations for different user groups. |
 | Observer Pattern | AlertObserver, ResidentAlertObserver, OfficerAlertObserver | Handles pollution alerts for different user roles. |
 
-## Class Diagram
 
-![UML Class Diagram](docs/class-diagram.jpg)
+## UML Class Diagram
+
+![UML Class Diagram](UML-Class%20Diagram.jpg)
 
 ---
 
