@@ -27,7 +27,7 @@ The diagram follows a layered design consisting of Controllers, Services, Reposi
 
 ## UML Class Diagram
 
-![UML Class Diagram](UML-Class%20Diagram.jpg)
+![UML Class Diagram](UML-Class%20Diagram.jpeg)
 
 ---
 
