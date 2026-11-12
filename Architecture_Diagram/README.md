@@ -26,7 +26,7 @@ Access to individual controller operations is intended to follow the permissions
 
 ## System Architecture
 
-![GreenAir Klang Valley System Architecture](docs/architecture/greenair-system-architecture.png)
+![GreenAir Klang Valley System Architecture](architecture/greenair-system-architecture.png)
 
 The application uses a **five-layer architecture** incorporating **Model–View–Controller (MVC)** principles:
 
