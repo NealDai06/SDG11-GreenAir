@@ -24,9 +24,11 @@ GreenAir Klang Valley is a Java desktop application designed to help users acces
 
 Access to individual controller operations is intended to follow the permissions of each user role.
 
-## System Architecture
 
-![GreenAir Klang Valley System Architecture](architecture/greenair-system-architecture.png)
+## System Architecture Diagram
+
+![System Architecture Diagram](greenair-system-architecture.png)
+
 
 The application uses a **five-layer architecture** incorporating **Model–View–Controller (MVC)** principles:
 
