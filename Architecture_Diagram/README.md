@@ -76,7 +76,7 @@ The planned integration and testing work includes Java GUI/API integration, JUni
 
 ## Architecture Documentation
 
-- [View the system architecture diagram](docs/architecture/greenair-system-architecture.png)
+- [View the system architecture diagram]()
 
 ---
 
