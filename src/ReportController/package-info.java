@@ -1,4 +1,2 @@
-/**
- * Handles resident reports and officer review.
- */
+/** Citizen pollution reports, validation, and local report storage. */
 package ReportController;
