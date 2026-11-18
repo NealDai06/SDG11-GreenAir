@@ -1,36 +1,51 @@
 package ReportController;
-import java.util.*;
-public class ReportController {
-    private final ReportService service;
-    public ReportController() {
-        this(new ReportService(new ReportRepository()));
+
+import java.time.LocalDateTime;
+import java.util.UUID;
+
+public class Report {
+    private final String reportId;
+    private final String username;
+    private final String type;
+    private final String description;
+    private final String pointId;
+    private final LocalDateTime submittedAt;
+    private boolean validated;
+    public static final java.util.Set<String> STATUSES = java.util.Set.of(
+            "Submitted", "Under review", "Action taken", "Resolved", "Dismissed");
+    private String status = "Submitted";
+
+    public Report(String username, String type, String description, String pointId) {
+        this(UUID.randomUUID().toString(), username, type, description, pointId,
+                LocalDateTime.now(), false, "Submitted");
     }
-    public ReportController(ReportService service) {
-        this.service=Objects.requireNonNull(service);
+
+    /** Restores stored identity, time, verification and processing status. */
+    public Report(String reportId, String username, String type, String description,
+                  String pointId, LocalDateTime submittedAt, boolean validated, String status) {
+        this.reportId = java.util.Objects.requireNonNull(reportId);
+        this.username = username;
+        this.type = type;
+        this.description = description;
+        this.pointId = pointId;
+        this.submittedAt = java.util.Objects.requireNonNull(submittedAt);
+        this.validated = validated;
+        setStatus(status);
     }
-    public boolean validateReport(String user,String district,String description) {
-        return service.validate(user,district,description);
+
+    public String getStatus() { return status; }
+    public void setStatus(String status) {
+        if (status == null || !STATUSES.contains(status))
+            throw new IllegalArgumentException("Invalid report status");
+        this.status = status;
     }
-    public Report submitReport(String user,String district,String description) {
-        return service.submit(user,district,description);
-    }
-    public boolean updateReportStatus(String id,String status) {
-        return service.updateStatus(id,status);
-    }
-    public List<Report> getAllReports() {
-        return service.all();
-    }
-    public List<Report> getReportsByDistrict(String district) {
-        return service.byDistrict(district);
-    }
-    public List<Report> getReportsByUser(String user) {
-        return service.byUser(user);
-    }
-    public static void main(String[] args) {
-        ReportController c=new ReportController();
-        Report r=c.submitReport("resident01","Shah Alam","Smoke detected near residential area");
-        System.out.println("Submitted: "+r);
-        c.updateReportStatus(r.getId(),"Reviewed");
-        System.out.println("Total reports: "+c.getAllReports().size());
-    }
+
+    public String getReportId() { return reportId; }
+    public String getUsername() { return username; }
+    public String getType() { return type; }
+    public String getDescription() { return description; }
+    public String getPointId() { return pointId; }
+    public LocalDateTime getSubmittedAt() { return submittedAt; }
+    public boolean isValidated() { return validated; }
+    public void setValidated(boolean validated) { this.validated = validated; }
 }
