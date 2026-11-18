@@ -1,2 +1,3 @@
-/** Citizen pollution reports, validation, and local report storage. */
 package ReportController;
+
+/** Citizen report controller, service, model and repository. */
