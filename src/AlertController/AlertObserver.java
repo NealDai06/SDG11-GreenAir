@@ -1,4 +1,5 @@
 package AlertController;
+
 public interface AlertObserver {
-    void onAlert(PollutionAlert alert);
+    void update(PollutionAlert alert);
 }
