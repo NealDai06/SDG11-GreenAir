@@ -1,46 +1,69 @@
 package AlertController;
-import java.util.*;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+
 public class PollutionAlertService {
-    private final AlertRepository repository;
-    private final List<AlertObserver> observers=new ArrayList<>();
-    private int threshold=100;
+    private final AlertRepository alertRepository;
+    private final List<AlertObserver> observerManager = new ArrayList<>();
+    private final Map<String, ResidentAlertObserver> residents = new HashMap<>();
+    private int threshold = 100;
+
     public PollutionAlertService(AlertRepository repository) {
-        this.repository=Objects.requireNonNull(repository);
+        this.alertRepository = Objects.requireNonNull(repository);
     }
+
     public void addObserver(AlertObserver observer) {
-        if(observer!=null&&!observers.contains(observer))observers.add(observer);
+        Objects.requireNonNull(observer);
+        if (!observerManager.contains(observer)) observerManager.add(observer);
+        if (observer instanceof ResidentAlertObserver) {
+            ResidentAlertObserver resident = (ResidentAlertObserver) observer;
+            residents.put(resident.getUsername(), resident);
+        }
     }
+
     public void removeObserver(AlertObserver observer) {
-        observers.remove(observer);
+        observerManager.remove(observer);
+        if (observer instanceof ResidentAlertObserver) {
+            ResidentAlertObserver resident = (ResidentAlertObserver) observer;
+            residents.remove(resident.getUsername(), resident);
+        }
     }
+
     public void setThreshold(int threshold) {
-        if(threshold<0||threshold>500)throw new IllegalArgumentException("Threshold must be 0..500");
-        this.threshold=threshold;
+        if (threshold < 0 || threshold > 500) throw new IllegalArgumentException("Invalid AQI threshold");
+        this.threshold = threshold;
     }
-    public int getThreshold() {
-        return threshold;
+
+    // Integration adapter until AirQualityReading is provided by the other team.
+    public void checkThreshold(String district, int aqi) {
+        if (district == null || district.isBlank() || aqi < 0 || aqi > 500)
+            throw new IllegalArgumentException("Invalid air quality reading");
+        if (aqi > threshold) {
+            String severity = aqi <= 50 ? "Good" : aqi <= 100 ? "Moderate" : aqi > 300 ? "Hazardous" : aqi > 200 ? "Very Unhealthy"
+                    : aqi > 150 ? "Unhealthy" : "Unhealthy for Sensitive Groups";
+            publishAlert(new PollutionAlert(district,
+                    "AQI " + aqi + " exceeds threshold " + threshold, severity));
+        }
     }
-    public String severity(int aqi) {
-        if(aqi<=50)return "Good";
-        if(aqi<=100)return "Moderate";
-        if(aqi<=150)return "Unhealthy for Sensitive Groups";
-        if(aqi<=200)return "Unhealthy";
-        if(aqi<=300)return "Very Unhealthy";
-        return "Hazardous";
+
+    public void publishAlert(PollutionAlert alert) {
+        alertRepository.save(alert);
+        for (AlertObserver observer : new ArrayList<>(observerManager)) observer.update(alert);
     }
-    public PollutionAlert check(String district,int aqi) {
-        if(district==null||district.isBlank())throw new IllegalArgumentException("District required");
-        if(aqi<0||aqi>500)throw new IllegalArgumentException("AQI must be 0..500");
-        if(aqi<=threshold)return null;
-        PollutionAlert alert=new PollutionAlert(district.trim(),aqi,severity(aqi));
-        repository.save(alert);
-        for(AlertObserver o:new ArrayList<>(observers))o.onAlert(alert);
-        return alert;
-    }
-    public List<PollutionAlert> history() {
-        return repository.findAll();
-    }
-    public List<PollutionAlert> historyByDistrict(String district) {
-        return repository.findByDistrict(district);
+
+    public List<PollutionAlert> getOfficerAlerts() { return alertRepository.findAll(); }
+
+    public List<PollutionAlert> getResidentAlerts(String username) {
+        ResidentAlertObserver resident = residents.get(username);
+        List<PollutionAlert> result = new ArrayList<>();
+        if (resident == null) return result;
+        for (PollutionAlert alert : alertRepository.findAll()) {
+            if (resident.subscribesTo(alert.getDistrict())) result.add(alert);
+        }
+        return result;
     }
 }
