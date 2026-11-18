@@ -1,2 +1,3 @@
-/** Air-quality threshold alerts, observer notifications, and alert history. */
 package AlertController;
+
+/** Pollution alert controller, service, repository and observers. */
