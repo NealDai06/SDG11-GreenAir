@@ -1,31 +1,30 @@
 package AlertController;
+
 import java.time.LocalDateTime;
+import java.util.UUID;
+
 public class PollutionAlert {
-    private final String district, severity;
-    private final int aqi;
+    private final String alertId;
+    private final String district;
+    private final String message;
     private final LocalDateTime timestamp;
-    public PollutionAlert(String district,int aqi,String severity) {
-        this(district,aqi,severity,LocalDateTime.now());
+    private final String severity;
+
+    public PollutionAlert(String district, String message, String severity) {
+        this.alertId = UUID.randomUUID().toString();
+        this.district = district;
+        this.message = message;
+        this.severity = severity;
+        this.timestamp = LocalDateTime.now();
     }
-    public PollutionAlert(String district,int aqi,String severity,LocalDateTime timestamp) {
-        this.district=district;
-        this.aqi=aqi;
-        this.severity=severity;
-        this.timestamp=timestamp;
-    }
-    public String getDistrict() {
-        return district;
-    }
-    public int getAqi() {
-        return aqi;
-    }
-    public String getSeverity() {
-        return severity;
-    }
-    public LocalDateTime getTimestamp() {
-        return timestamp;
-    }
-    public String toString() {
-        return timestamp+" | "+district+" | AQI: "+aqi+" | "+severity;
+
+    public String getAlertId() { return alertId; }
+    public String getDistrict() { return district; }
+    public String getMessage() { return message; }
+    public LocalDateTime getTimestamp() { return timestamp; }
+    public String getSeverity() { return severity; }
+    @Override public String toString() {
+        return district + " | " + severity + " | " + message;
     }
 }
+
