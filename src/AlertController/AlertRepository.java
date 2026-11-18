@@ -1,16 +1,18 @@
 package AlertController;
-import java.util.*;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
 public class AlertRepository {
-    private final List<PollutionAlert> alerts=new ArrayList<>();
-    public void save(PollutionAlert alert) {
-        alerts.add(Objects.requireNonNull(alert));
-    }
+    private final List<PollutionAlert> alerts = new ArrayList<>();
+    public void save(PollutionAlert alert) { alerts.add(alert); }
     public List<PollutionAlert> findAll() {
         return Collections.unmodifiableList(new ArrayList<>(alerts));
     }
-    public List<PollutionAlert> findByDistrict(String district) {
-        List<PollutionAlert> result=new ArrayList<>();
-        if(district!=null)for(PollutionAlert a:alerts)if(a.getDistrict().equalsIgnoreCase(district.trim()))result.add(a);
-        return result;
+    // User-specific filtering requires the user's subscribed districts.
+    public List<PollutionAlert> findByUsername(String username) {
+        throw new UnsupportedOperationException(
+                "Provide user subscriptions via the service before filtering");
     }
 }
