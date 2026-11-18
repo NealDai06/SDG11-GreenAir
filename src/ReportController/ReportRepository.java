@@ -1,90 +1,51 @@
 package ReportController;
-import java.nio.file.*;
-import java.nio.charset.StandardCharsets;
-import java.io.IOException;
+
+import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.util.*;
+
+/** Local JSON storage; use one repository instance per file in this desktop app. */
 public class ReportRepository {
-    private final Path path;
-    private final List<Report> reports=new ArrayList<>();
-    public ReportRepository() {
-        this(Path.of("data","reports.tsv"));
-    }
+    private final JsonFile file;
+    private final List<Report> reports = new ArrayList<>();
+    /** In-memory repository for isolated demos and tests. */
+    public ReportRepository() { file = null; }
     public ReportRepository(Path path) {
-        this.path=Objects.requireNonNull(path);
-        load();
-    }
-    private String enc(String value) {
-        return Base64.getEncoder().encodeToString(value.getBytes(StandardCharsets.UTF_8));
-    }
-    private String dec(String value) {
-        return new String(Base64.getDecoder().decode(value),StandardCharsets.UTF_8);
-    }
-    public void load() {
-        if(!Files.exists(path))return;
-        try {
-            List<Report> loaded=new ArrayList<>();
-            for(String line:Files.readAllLines(path,StandardCharsets.UTF_8)) {
-                if(line.isBlank())continue;
-                String[] p=line.split("\t",-1);
-                if(p.length!=6)throw new IOException("Invalid report record");
-                loaded.add(new Report(dec(p[0]),dec(p[1]),dec(p[2]),dec(p[3]),LocalDateTime.parse(p[4]),dec(p[5])));
-            }
-            reports.clear();
-            reports.addAll(loaded);
-        }
-        catch(IOException|IllegalArgumentException e) {
-            throw new IllegalStateException("Cannot read report file: "+path,e);
-        }
-    }
-    private void persist() {
-        List<String> lines=new ArrayList<>();
-        for(Report r:reports)lines.add(enc(r.getId())+"\t"+enc(r.getUsername())+"\t"+enc(r.getDistrict())+"\t"+enc(r.getDescription())+"\t"+r.getCreatedAt()+"\t"+enc(r.getStatus()));
-        try {
-            Path parent=path.toAbsolutePath().getParent();
-            if(parent!=null)Files.createDirectories(parent);
-            Files.write(path,lines,StandardCharsets.UTF_8);
-        }
-        catch(IOException e) {
-            throw new IllegalStateException("Cannot save report file: "+path,e);
+        file = new JsonFile(Objects.requireNonNull(path));
+        for (Map<String, String> row : file.load()) {
+            reports.add(new Report(row.getOrDefault("reportId", row.get("id")),
+                    row.get("username"), row.get("type"), row.get("description"), row.get("pointId"),
+                    LocalDateTime.parse(row.get("submittedAt")),
+                    Boolean.parseBoolean(row.getOrDefault("validated", "false")),
+                    row.getOrDefault("status", "Submitted")));
         }
     }
     public void save(Report report) {
-        reports.add(Objects.requireNonNull(report));
-        try {
-            persist();
+        Objects.requireNonNull(report);
+        int index = -1;
+        for (int i = 0; i < reports.size(); i++)
+            if (reports.get(i).getReportId().equals(report.getReportId())) { index = i; break; }
+        Report previous = index < 0 ? null : reports.get(index);
+        if (index < 0) reports.add(report); else reports.set(index, report);
+        try { persist(); }
+        catch (RuntimeException ex) {
+            if (index < 0) reports.remove(report); else reports.set(index, previous);
+            throw ex;
         }
-        catch(RuntimeException e) {
-            reports.remove(report);
-            throw e;
-        }
     }
-    public boolean updateStatus(String id,String status) {
-        for(Report r:reports)if(r.getId().equals(id)) {
-            String old=r.getStatus();
-            r.setStatus(status);
-            try {
-                persist();
-            }
-            catch(RuntimeException e) {
-                r.setStatus(old);
-                throw e;
-            }
-            return true;
-        }
-        return false;
+    private void persist() {
+        if (file == null) return;
+        List<Map<String, String>> rows = new ArrayList<>();
+        for (Report r : reports) rows.add(JsonFile.row(
+                "reportId", r.getReportId(), "username", r.getUsername(), "type", r.getType(),
+                "description", r.getDescription(), "pointId", r.getPointId(),
+                "submittedAt", r.getSubmittedAt().toString(),
+                "validated", Boolean.toString(r.isValidated()), "status", r.getStatus()));
+        file.save(rows);
     }
-    public List<Report> findAll() {
-        return Collections.unmodifiableList(new ArrayList<>(reports));
-    }
-    public List<Report> findByDistrict(String district) {
-        List<Report> out=new ArrayList<>();
-        if(district!=null)for(Report r:reports)if(r.getDistrict().equalsIgnoreCase(district.trim()))out.add(r);
-        return out;
-    }
-    public List<Report> findByUser(String user) {
-        List<Report> out=new ArrayList<>();
-        if(user!=null)for(Report r:reports)if(r.getUsername().equalsIgnoreCase(user.trim()))out.add(r);
-        return out;
+    public List<Report> findAll() { return new ArrayList<>(reports); }
+    public Report findById(String reportId) {
+        for (Report report : reports) if (report.getReportId().equals(reportId)) return report;
+        return null;
     }
 }
