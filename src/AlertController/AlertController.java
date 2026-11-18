@@ -1,41 +1,52 @@
 package AlertController;
-import java.util.*;
+
+import java.util.Arrays;
+import java.util.List;
+import java.util.Objects;
+
 public class AlertController {
-    private final PollutionAlertService service;
+    private final PollutionAlertService alertService;
+
     public AlertController() {
         this(new PollutionAlertService(new AlertRepository()));
     }
+
     public AlertController(PollutionAlertService service) {
-        this.service=Objects.requireNonNull(service);
+        this.alertService = Objects.requireNonNull(service);
     }
-    public void addObserver(AlertObserver observer) {
-        service.addObserver(observer);
+
+    public List<PollutionAlert> getResidentAlerts(String username) {
+        return alertService.getResidentAlerts(username);
     }
-    public void removeObserver(AlertObserver observer) {
-        service.removeObserver(observer);
+
+    public List<PollutionAlert> getOfficerAlerts() {
+        return alertService.getOfficerAlerts();
     }
-    public void setAlertThreshold(int value) {
-        service.setThreshold(value);
+
+    public List<PollutionAlert> getHistory(String username) {
+        return getResidentAlerts(username);
     }
-    public int getAlertThreshold() {
-        return service.getThreshold();
+
+    // Integration helpers for the UI and AirQualityController.
+    public void registerObserver(AlertObserver observer) {
+        alertService.addObserver(observer);
     }
-    public PollutionAlert checkAirQuality(String district,int aqi) {
-        return service.check(district,aqi);
+
+    public void removeObserver(AlertObserver observer) { alertService.removeObserver(observer); }
+    public void setAlertThreshold(int threshold) { alertService.setThreshold(threshold); }
+
+    public void checkAirQuality(String district, int aqi) {
+        alertService.checkThreshold(district, aqi);
     }
-    public List<PollutionAlert> getAlertHistory() {
-        return service.history();
-    }
-    public List<PollutionAlert> getAlertsByDistrict(String district) {
-        return service.historyByDistrict(district);
-    }
+
     public static void main(String[] args) {
-        AlertController c=new AlertController();
-        c.addObserver(new OfficerAlertObserver("officer01"));
-        c.addObserver(new ResidentAlertObserver("resident01",Arrays.asList("Shah Alam")));
-        c.checkAirQuality("Shah Alam",165);
-        c.checkAirQuality("Klang",85);
-        c.checkAirQuality("Petaling Jaya",220);
-        System.out.println("Total alerts: "+c.getAlertHistory().size());
+        AlertController controller = new AlertController();
+        controller.registerObserver(new OfficerAlertObserver("officer01"));
+        controller.registerObserver(new ResidentAlertObserver(
+                "resident01", Arrays.asList("Shah Alam")));
+        controller.checkAirQuality("Shah Alam", 165);
+        controller.checkAirQuality("Petaling Jaya", 220);
+        System.out.println("Officer alerts: " + controller.getOfficerAlerts().size());
+        System.out.println("Resident alerts: " + controller.getResidentAlerts("resident01").size());
     }
 }
