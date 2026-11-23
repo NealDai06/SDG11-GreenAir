@@ -52,6 +52,16 @@ public class MonitoringPointController {
         return service.activeDistricts();
     }
 
+    /** The monitoring list used by the resident and officer air quality screens. */
+    public List<MonitoringPoint> getAllPoints() {
+        return service.findAll();
+    }
+
+    /** Resolves the monitoring point ID used by the air quality and report modules. */
+    public MonitoringPoint getPointById(String pointId) {
+        return service.requirePoint(pointId);
+    }
+
     /** Centre of a district, so the distance to each park can be computed. */
     public Optional<double[]> districtCentre(String district) {
         return service.districtCentre(district);
