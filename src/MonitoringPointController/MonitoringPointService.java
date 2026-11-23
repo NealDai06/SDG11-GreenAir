@@ -124,10 +124,10 @@ public class MonitoringPointService {
     }
 
     private static void assertCoordinates(double latitude, double longitude) {
-        if (latitude < -90 || latitude > 90) {
+        if (!Double.isFinite(latitude) || latitude < -90 || latitude > 90) {
             throw new MonitoringPointRequestException("Latitude must be between -90 and 90.");
         }
-        if (longitude < -180 || longitude > 180) {
+        if (!Double.isFinite(longitude) || longitude < -180 || longitude > 180) {
             throw new MonitoringPointRequestException("Longitude must be between -180 and 180.");
         }
     }
