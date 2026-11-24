@@ -1,8 +1,8 @@
-package graphicuserinterface.greenair.graphicuserinterface;
+package GraphicUserInterface;
 
-import graphicuserinterface.greenair.monitoringcontroller.MonitoringPoint;
-import graphicuserinterface.greenair.usercontroller.UserProfile;
-import graphicuserinterface.greenair.usercontroller.UserRole;
+import MonitoringPointController.MonitoringPoint;
+import UserController.UserProfile;
+import UserController.UserRole;
 
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
@@ -53,7 +53,7 @@ public class AdminView extends JPanel {
     /** Called by MainFrame after login. */
     public void open(UserProfile profile) {
         this.admin = profile;
-        userLabel.setText("Signed in as " + profile.name());
+        userLabel.setText("Signed in as " + profile.fullName());
         Theme.guard(this, () -> { refreshUsers(); refreshPoints(); });
     }
 
@@ -87,7 +87,7 @@ public class AdminView extends JPanel {
             if (u.username().equalsIgnoreCase(admin.username()) && role != UserRole.ADMINISTRATOR) {
                 throw new IllegalArgumentException("You cannot remove your own administrator role.");
             }
-            c.user().updateUser(u.withRole(role));
+            c.user().changeRole(u.id(), role);
             refreshUsers();
         }));
         toggle.addActionListener(e -> Theme.guard(this, () -> {
@@ -95,7 +95,7 @@ public class AdminView extends JPanel {
             if (u.username().equalsIgnoreCase(admin.username()) && u.active()) {
                 throw new IllegalArgumentException("You cannot deactivate the account you are logged in with.");
             }
-            c.user().updateUser(u.withActive(!u.active()));
+            c.user().setUserActive(u.id(), !u.active());
             refreshUsers();
         }));
         delete.addActionListener(e -> Theme.guard(this, () -> {
@@ -105,7 +105,7 @@ public class AdminView extends JPanel {
             }
             int ok = JOptionPane.showConfirmDialog(this, "Delete user " + u.username() + "? This cannot be undone.",
                     "Confirm deletion", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
-            if (ok == JOptionPane.YES_OPTION) { c.user().deleteUser(u.username()); refreshUsers(); }
+            if (ok == JOptionPane.YES_OPTION) { c.user().deleteAccount(u.id()); refreshUsers(); }
         }));
         return page;
     }
@@ -114,14 +114,14 @@ public class AdminView extends JPanel {
         int row = userTable.getSelectedRow();
         if (row < 0) throw new IllegalArgumentException("Select a user first.");
         String username = String.valueOf(userModel.getValueAt(row, 1));
-        return c.user().getAllUsers().stream().filter(u -> u.username().equals(username)).findFirst()
+        return c.user().listAccounts().stream().filter(u -> u.username().equals(username)).findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("That user no longer exists."));
     }
 
     private void refreshUsers() {
         List<Object[]> rows = new ArrayList<>();
-        for (UserProfile u : c.user().getAllUsers()) {
-            rows.add(new Object[]{u.name(), u.username(), u.role().label(), u.groupType().label(), u.active() ? "Active" : "Inactive"});
+        for (UserProfile u : c.user().listAccounts()) {
+            rows.add(new Object[]{u.fullName(), u.username(), u.role().label(), u.groupType().label(), u.active() ? "Active" : "Inactive"});
         }
         Theme.fill(userModel, rows);
     }
@@ -148,7 +148,6 @@ public class AdminView extends JPanel {
 
         JPanel form = Theme.card();
         form.setLayout(new GridBagLayout());
-        form.setPreferredSize(new Dimension(380, 100));
         Theme.addRow(form, 0, "ID", idField);
         Theme.addRow(form, 1, "Location", locationField);
         Theme.addRow(form, 2, "District", districtField);
@@ -174,6 +173,7 @@ public class AdminView extends JPanel {
 
         JPanel left = new JPanel(new BorderLayout());
         left.setOpaque(false);
+        left.setPreferredSize(new Dimension(380, form.getPreferredSize().height));
         left.add(form, BorderLayout.NORTH);
         page.add(left, BorderLayout.WEST);
         page.add(Theme.scroll(pointTable), BorderLayout.CENTER);
@@ -185,7 +185,7 @@ public class AdminView extends JPanel {
             if (idField.getText().isBlank()) throw new IllegalArgumentException("Select a monitoring point first.");
             int ok = JOptionPane.showConfirmDialog(this, "Delete monitoring point " + idField.getText() + "?",
                     "Confirm deletion", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
-            if (ok == JOptionPane.YES_OPTION) { c.monitoring().deletePoint(idField.getText()); refreshPoints(); clearPointForm(); }
+            if (ok == JOptionPane.YES_OPTION) { c.monitoring().delete(admin.role(), idField.getText()); refreshPoints(); clearPointForm(); }
         }));
         return page;
     }
@@ -198,18 +198,32 @@ public class AdminView extends JPanel {
         } catch (NumberFormatException ex) {
             throw new IllegalArgumentException("Latitude and longitude must be numbers, e.g. 3.1390 and 101.6869.");
         }
-        MonitoringPoint p = new MonitoringPoint(idField.getText().trim(), districtField.getText().trim(), lat, lon,
-                locationField.getText().trim(), activeBox.isSelected());
-        if (p.pointId().isBlank()) c.monitoring().createPoint(p); else c.monitoring().updatePoint(p);
+        MonitoringPoint previous = idField.getText().isBlank() ? null
+                : c.monitoring().getPointById(idField.getText().trim());
+        MonitoringPoint saved = c.monitoring().save(admin.role(), idField.getText().trim(), locationField.getText().trim(),
+                districtField.getText().trim(), lat, lon, activeBox.isSelected());
         refreshPoints();
         clearPointForm();
-        Theme.info(this, "Monitoring point saved.");
+        if (previous != null && saved.active() &&
+                (Double.compare(previous.latitude(), lat) != 0 || Double.compare(previous.longitude(), lon) != 0)) {
+            Theme.background(this, () -> {
+                String warning = "";
+                try { c.airQuality().refresh(saved.id()); }
+                catch (IllegalStateException ex) { warning = " Current reading unavailable."; }
+                try { c.airQuality().getForecast(saved.id()); }
+                catch (IllegalStateException ex) { warning += " Forecast unavailable."; }
+                return warning;
+            }, warning -> Theme.info(this, "Monitoring point saved." +
+                    (warning.isEmpty() ? " Air quality and forecast refreshed." : warning)));
+        } else {
+            Theme.info(this, "Monitoring point saved.");
+        }
     }
 
     private void refreshPoints() {
         List<Object[]> rows = new ArrayList<>();
-        for (MonitoringPoint p : c.monitoring().getAllPoints()) {
-            rows.add(new Object[]{p.pointId(), p.location(), p.districtName(), p.latitude(), p.longitude(), p.active()});
+        for (MonitoringPoint p : c.monitoring().listPoints(admin.role())) {
+            rows.add(new Object[]{p.id(), p.name(), p.district(), p.latitude(), p.longitude(), p.active()});
         }
         Theme.fill(pointModel, rows);
     }
