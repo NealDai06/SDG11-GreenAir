@@ -1,15 +1,14 @@
-package graphicuserinterface.greenair.graphicuserinterface;
+package GraphicUserInterface;
 
-import graphicuserinterface.greenair.airqualitycontroller.AirQualityReading;
-import graphicuserinterface.greenair.alertcontroller.PollutionAlert;
-import graphicuserinterface.greenair.monitoringcontroller.MonitoringPoint;
-import graphicuserinterface.greenair.reportcontroller.Report;
-import graphicuserinterface.greenair.usercontroller.UserProfile;
+import AirQualityController.AirQualityReading;
+import AlertController.PollutionAlert;
+import MonitoringPointController.MonitoringPoint;
+import ReportController.Report;
+import UserController.UserProfile;
 
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
-import java.io.IOException;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
@@ -49,7 +48,7 @@ public class OfficerView extends JPanel {
 
     /** Called by MainFrame after login. */
     public void open(UserProfile profile) {
-        userLabel.setText("Signed in as " + profile.name());
+        userLabel.setText("Signed in as " + profile.fullName());
         Theme.guard(this, () -> { refreshReports(); refreshAlerts(); refreshOverview(); });
     }
 
@@ -128,7 +127,7 @@ public class OfficerView extends JPanel {
         top.add(refresh, BorderLayout.EAST);
         page.add(top, BorderLayout.NORTH);
         page.add(Theme.scroll(table), BorderLayout.CENTER);
-        refresh.addActionListener(e -> Theme.guard(this, this::refreshOverview));
+        refresh.addActionListener(e -> Theme.guard(this, () -> refreshOverview(true)));
         return page;
     }
 
@@ -137,10 +136,11 @@ public class OfficerView extends JPanel {
         reportDescriptions.clear();
         for (Report r : c.report().getAllReports()) {
             String district;
-            try { district = c.monitoring().getPointById(r.pointId()).districtName(); }
-            catch (IllegalArgumentException ex) { district = "(removed point)"; }
-            rows.add(new Object[]{r.reportId(), r.submittedAt().format(FMT), r.type(), district, r.username(), r.status()});
-            reportDescriptions.add(r.description());
+            try { district = c.monitoring().getPointById(r.getPointId()).district(); }
+            catch (RuntimeException ex) { district = "(removed point)"; }
+            rows.add(new Object[]{r.getReportId(), r.getSubmittedAt().format(FMT), r.getType(),
+                    district, r.getUsername(), r.getStatus()});
+            reportDescriptions.add(r.getDescription());
         }
         Theme.fill(reportModel, rows);
         reportDetail.setText("");
@@ -149,29 +149,40 @@ public class OfficerView extends JPanel {
     private void refreshAlerts() {
         List<Object[]> rows = new ArrayList<>();
         for (PollutionAlert a : c.alert().getOfficerAlerts()) {
-            rows.add(new Object[]{a.timestamp().format(FMT), a.districtId(), a.severity(), a.message()});
+            rows.add(new Object[]{a.getTimestamp().format(FMT), a.getDistrict(), a.getSeverity(), a.getMessage()});
         }
         Theme.fill(alertModel, rows);
     }
 
     private void refreshOverview() {
+        refreshOverview(false);
+    }
+
+    private void refreshOverview(boolean forceRefresh) {
+        List<MonitoringPoint> points = c.monitoring().getAllPoints();
+        Theme.background(this, () -> overviewRows(points, forceRefresh), rows -> {
+            Theme.fill(overviewModel, rows);
+            refreshAlerts();
+        });
+    }
+
+    private List<Object[]> overviewRows(List<MonitoringPoint> points, boolean forceRefresh) {
         List<Object[]> rows = new ArrayList<>();
-        for (MonitoringPoint p : c.monitoring().getAllPoints()) {
+        for (MonitoringPoint p : points) {
             if (!p.active()) continue;
             try {
-                AirQualityReading r = c.airQuality().getCurrentReading(p.pointId());
-                rows.add(new Object[]{p.location(), p.districtName(), r.pm25(), r.pm10(), r.usAqi(), r.category()});
-            } catch (IOException ex) {
-                rows.add(new Object[]{p.location(), p.districtName(), "-", "-", "-", "No data"});
+                AirQualityReading r = forceRefresh ? c.airQuality().refresh(p.id()) : c.airQuality().getCurrentReading(p.id());
+                rows.add(new Object[]{p.name(), p.district(), r.pm25(), r.pm10(), r.usAqi(), Theme.aqiCategory(r.usAqi())});
+            } catch (RuntimeException ex) {
+                rows.add(new Object[]{p.name(), p.district(), "-", "-", "-", "No data"});
             }
         }
-        Theme.fill(overviewModel, rows);
-        refreshAlerts();
+        return rows;
     }
 
     /** Observer callback: a new alert from any district. Adds it to the table and shows a notification. */
     public void showAlert(PollutionAlert a) {
-        alertModel.insertRow(0, new Object[]{a.timestamp().format(FMT), a.districtId(), a.severity(), a.message()});
-        JOptionPane.showMessageDialog(this, a.message(), "Pollution alert - " + a.districtId(), JOptionPane.WARNING_MESSAGE);
+        alertModel.insertRow(0, new Object[]{a.getTimestamp().format(FMT), a.getDistrict(), a.getSeverity(), a.getMessage()});
+        JOptionPane.showMessageDialog(this, a.getMessage(), "Pollution alert - " + a.getDistrict(), JOptionPane.WARNING_MESSAGE);
     }
 }
