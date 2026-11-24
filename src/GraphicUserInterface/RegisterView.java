@@ -1,8 +1,8 @@
-package graphicuserinterface.greenair.graphicuserinterface;
+package GraphicUserInterface;
 
-import graphicuserinterface.greenair.usercontroller.GroupType;
-import graphicuserinterface.greenair.usercontroller.UserProfile;
-import graphicuserinterface.greenair.usercontroller.UserRole;
+import UserController.GroupType;
+import UserController.UserProfile;
+import UserController.UserRole;
 
 import javax.swing.*;
 import java.awt.*;
@@ -56,9 +56,8 @@ public class RegisterView extends JPanel {
     }
 
     private void submit() {
-        UserProfile profile = new UserProfile(usernameField.getText().trim(), UserRole.RESIDENT, nameField.getText().trim(),
-                GroupType.fromLabel((String) groupCombo.getSelectedItem()), List.of(), true);
-        controllers.user().register(profile);
+        UserProfile profile = controllers.user().register(usernameField.getText().trim(), nameField.getText().trim(),
+                GroupType.fromLabel((String) groupCombo.getSelectedItem()), List.of());
         Theme.info(this, "Account created. You can now log in as \"" + profile.username() + "\".");
         nameField.setText("");
         usernameField.setText("");
