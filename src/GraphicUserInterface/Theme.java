@@ -1,12 +1,15 @@
-package graphicuserinterface.greenair.graphicuserinterface;
-
-import graphicuserinterface.greenair.airqualitycontroller.AirQualityReading;
+package GraphicUserInterface;
 
 import javax.swing.*;
 import javax.swing.border.*;
 import javax.swing.table.*;
 import java.awt.*;
 import java.util.List;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.function.Consumer;
 
 /** Shared look-and-feel helpers for the GreenAir Klang Valley view layer. */
 public final class Theme {
@@ -31,7 +34,6 @@ public final class Theme {
         b.setFont(HEADING);
         b.setOpaque(true);
         b.setBorderPainted(false);
-        b.setFocusPainted(false);
         b.setBorder(new EmptyBorder(8, 18, 8, 18));
         b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         return b;
@@ -43,7 +45,6 @@ public final class Theme {
         b.setForeground(PRIMARY_DARK);
         b.setFont(BODY);
         b.setOpaque(true);
-        b.setFocusPainted(false);
         b.setBorder(new CompoundBorder(new LineBorder(PRIMARY, 1, true), new EmptyBorder(6, 14, 6, 14)));
         b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         return b;
@@ -160,7 +161,14 @@ public final class Theme {
         return new Color(0x6D1B3A);
     }
 
-    public static String aqiCategory(int aqi) { return AirQualityReading.categoryOf(aqi); }
+    public static String aqiCategory(int aqi) {
+        if (aqi <= 50) return "Good";
+        if (aqi <= 100) return "Moderate";
+        if (aqi <= 150) return "Unhealthy for sensitive groups";
+        if (aqi <= 200) return "Unhealthy";
+        if (aqi <= 300) return "Very unhealthy";
+        return "Hazardous";
+    }
 
     static void info(Component parent, String msg) {
         JOptionPane.showMessageDialog(parent, msg, "GreenAir Klang Valley", JOptionPane.INFORMATION_MESSAGE);
@@ -181,6 +189,41 @@ public final class Theme {
             error(parent, e.getMessage());
         } catch (Exception e) {
             JOptionPane.showMessageDialog(parent, e.getMessage(), "Problem", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    /** Runs network work off the Swing event thread and restores controls after success or failure. */
+    static <T> void background(JComponent parent, Callable<T> action, Consumer<T> showResult) {
+        if (Boolean.TRUE.equals(parent.getClientProperty("greenair.busy"))) return;
+        parent.putClientProperty("greenair.busy", true);
+        Map<Component, Boolean> controls = new LinkedHashMap<>();
+        disableControls(parent, controls);
+        Cursor previousCursor = parent.getCursor();
+        parent.setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
+        new SwingWorker<T, Void>() {
+            @Override protected T doInBackground() throws Exception { return action.call(); }
+            @Override protected void done() {
+                controls.forEach(Component::setEnabled);
+                parent.setCursor(previousCursor);
+                parent.putClientProperty("greenair.busy", false);
+                try { showResult.accept(get()); }
+                catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+                catch (ExecutionException e) { error(parent, e.getCause().getMessage()); }
+                catch (RuntimeException e) { error(parent, e.getMessage()); }
+            }
+        }.execute();
+    }
+
+    private static void disableControls(Container container, Map<Component, Boolean> states) {
+        for (Component child : container.getComponents()) {
+            if (child instanceof AbstractButton || child instanceof JComboBox<?> || child instanceof JTabbedPane) {
+                states.put(child, child.isEnabled());
+                child.setEnabled(false);
+            }
+            if (child instanceof Container nested
+                    && !(child instanceof AbstractButton) && !(child instanceof JComboBox<?>)) {
+                disableControls(nested, states);
+            }
         }
     }
 
