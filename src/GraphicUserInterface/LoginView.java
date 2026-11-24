@@ -1,6 +1,6 @@
-package graphicuserinterface.greenair.graphicuserinterface;
+package GraphicUserInterface;
 
-import graphicuserinterface.greenair.usercontroller.UserProfile;
+import UserController.UserProfile;
 
 import javax.swing.*;
 import java.awt.*;
@@ -52,13 +52,13 @@ public class LoginView extends JPanel {
             return;
         }
         try {
-            UserProfile profile = controllers.user().login(username);
+            UserProfile profile = controllers.user().logIn(username);
             errorLabel.setText(" ");
             frame.openDashboard(profile);
         } catch (IllegalArgumentException | IllegalStateException ex) {
             errorLabel.setText(ex.getMessage());
         } catch (RuntimeException ex) {
-            errorLabel.setText("Could not read the users file: " + ex.getMessage());
+            errorLabel.setText(ex.getMessage());
         }
     }
 
