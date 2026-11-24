@@ -1,18 +1,16 @@
-package graphicuserinterface.greenair.graphicuserinterface;
+package GraphicUserInterface;
 
-import graphicuserinterface.greenair.airqualitycontroller.AirQualityReading;
-import graphicuserinterface.greenair.alertcontroller.PollutionAlert;
-import graphicuserinterface.greenair.monitoringcontroller.MonitoringPoint;
-import graphicuserinterface.greenair.recommendationcontroller.ParkRecommendationService.Recommendation;
-import graphicuserinterface.greenair.reportcontroller.Report;
-import graphicuserinterface.greenair.usercontroller.GroupType;
-import graphicuserinterface.greenair.usercontroller.UserProfile;
+import AirQualityController.AirQualityReading;
+import AlertController.PollutionAlert;
+import MonitoringPointController.MonitoringPoint;
+import RecommendationController.Park;
+import ReportController.Report;
+import UserController.GroupType;
+import UserController.UserProfile;
 
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
-import java.io.IOException;
-import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
@@ -36,8 +34,7 @@ public class ResidentView extends JPanel {
     private final DefaultTableModel forecastModel = Theme.readOnlyModel("Time", "PM2.5 (µg/m³)", "PM10 (µg/m³)", "US AQI");
 
     private final JComboBox<String> parkDistrict = newDistrictCombo();
-    private final JSpinner distanceSpinner = new JSpinner(new SpinnerNumberModel(15.0, 1.0, 50.0, 1.0));
-    private final DefaultTableModel parkModel = Theme.readOnlyModel("Park", "District", "Distance (km)", "US AQI", "Suitability");
+    private final DefaultTableModel parkModel = Theme.readOnlyModel("Park", "District", "Latitude", "Longitude");
 
     private final JComboBox<String> adviceGroup = new JComboBox<>();
     private final JComboBox<String> adviceDistrict = newDistrictCombo();
@@ -79,10 +76,10 @@ public class ResidentView extends JPanel {
     /** Called by MainFrame after login. */
     public void open(UserProfile profile) {
         this.user = profile;
-        userLabel.setText("Signed in as " + profile.name() + " (" + profile.groupType().label() + ")");
+        userLabel.setText("Signed in as " + profile.fullName() + " (" + profile.groupType().label() + ")");
         adviceGroup.setSelectedItem(profile.groupType().label());
         Theme.guard(this, () -> {
-            List<String> districts = c.monitoring().getDistrictNames();
+            List<String> districts = c.monitoring().activeDistricts();
             for (JComboBox<String> cb : districtCombos) {
                 cb.removeAllItems();
                 districts.forEach(cb::addItem);
@@ -103,7 +100,6 @@ public class ResidentView extends JPanel {
         top.add(Theme.heading("District"));
         top.add(aqDistrict);
         top.add(fetch);
-        top.add(aqUpdated);
         fetch.addActionListener(e -> Theme.guard(this, this::loadAirQuality));
 
         JPanel aqiCard = Theme.card();
@@ -117,6 +113,7 @@ public class ResidentView extends JPanel {
         north.setOpaque(false);
         north.add(top, BorderLayout.NORTH);
         north.add(cards, BorderLayout.CENTER);
+        north.add(aqUpdated, BorderLayout.SOUTH);
 
         JTable table = new JTable(forecastModel);
         Theme.styleTable(table);
@@ -148,7 +145,7 @@ public class ResidentView extends JPanel {
         page.add(Theme.muted("Subscribed regions are used for the Alerts tab and for pop-up alerts."), BorderLayout.SOUTH);
 
         toggle.addActionListener(e -> Theme.guard(this, this::toggleSubscription));
-        refresh.addActionListener(e -> Theme.guard(this, () -> { loadRegions(); refreshAlerts(); }));
+        refresh.addActionListener(e -> Theme.guard(this, () -> { loadRegions(true); refreshAlerts(); }));
         return page;
     }
 
@@ -159,13 +156,10 @@ public class ResidentView extends JPanel {
         JButton find = Theme.primaryButton("Find parks");
         top.add(Theme.heading("Near district"));
         top.add(parkDistrict);
-        top.add(Theme.heading("Within (km)"));
-        top.add(distanceSpinner);
         top.add(find);
         find.addActionListener(e -> Theme.guard(this, this::findParks));
         JTable table = new JTable(parkModel);
         Theme.styleTable(table);
-        table.getColumnModel().getColumn(3).setCellRenderer(new Theme.AqiCellRenderer());
         page.add(top, BorderLayout.NORTH);
         page.add(Theme.scroll(table), BorderLayout.CENTER);
         page.add(Theme.muted("Parks are ranked by air quality, then distance from the selected district's monitoring point."), BorderLayout.SOUTH);
@@ -201,9 +195,11 @@ public class ResidentView extends JPanel {
         left.add(form, BorderLayout.NORTH);
         page.add(left, BorderLayout.WEST);
         page.add(card, BorderLayout.CENTER);
-        get.addActionListener(e -> Theme.guard(this, () -> adviceArea.setText(
-                c.recommendation().getActivityAdvice(GroupType.fromLabel((String) adviceGroup.getSelectedItem()),
-                        pointId(adviceDistrict)))));
+        get.addActionListener(e -> Theme.guard(this, () -> {
+            GroupType group = GroupType.fromLabel((String) adviceGroup.getSelectedItem());
+            String pid = pointId(adviceDistrict);
+            Theme.background(this, () -> c.recommendation().getActivityAdvice(group, pid), adviceArea::setText);
+        }));
         return page;
     }
 
@@ -254,23 +250,31 @@ public class ResidentView extends JPanel {
     private String pointId(JComboBox<String> districtBox) {
         String district = (String) districtBox.getSelectedItem();
         if (district == null) throw new IllegalArgumentException("Select a district first.");
-        return c.monitoring().findPointForDistrict(district).map(MonitoringPoint::pointId)
-                .orElseThrow(() -> new IllegalArgumentException("No active monitoring point in " + district + "."));
+        return frame.pointForDistrict(district).id();
     }
 
     private void loadAirQuality() throws Exception {
         String pid = pointId(aqDistrict);
-        AirQualityReading r = c.airQuality().getCurrentReading(pid);
+        Theme.background(this, () -> {
+            AirQualityReading current = c.airQuality().getCurrentReading(pid);
+            try { return new AirQualityResult(current, c.airQuality().getForecast(pid), ""); }
+            catch (IllegalStateException e) { return new AirQualityResult(current, List.of(), " Forecast unavailable."); }
+        }, this::showAirQuality);
+    }
+
+    private void showAirQuality(AirQualityResult result) {
+        AirQualityReading r = result.current();
         pm25Value.setText(String.format("%.1f", r.pm25()));
         pm10Value.setText(String.format("%.1f", r.pm10()));
         aqiValue.setText(String.valueOf(r.usAqi()));
-        aqiCategory.setText(r.category());
+        aqiCategory.setText(Theme.aqiCategory(r.usAqi()));
         Color col = Theme.aqiColor(r.usAqi());
         aqiValue.setForeground(col);
         aqiCategory.setForeground(col);
-        aqUpdated.setText(aqDistrict.getSelectedItem() + " - reading for " + r.validTime().format(FMT));
+        aqUpdated.setText((r.cached() ? "Cached data" : "Live data") + " - reading for " + r.validTime().format(FMT)
+                + ", fetched at " + r.fetchedAt().format(FMT) + "." + result.warning());
         List<Object[]> rows = new ArrayList<>();
-        for (AirQualityReading f : c.airQuality().getForecast(pid)) {
+        for (AirQualityReading f : result.forecast()) {
             rows.add(new Object[]{f.validTime().format(FMT), f.pm25(), f.pm10(), f.usAqi()});
         }
         Theme.fill(forecastModel, rows);
@@ -279,29 +283,41 @@ public class ResidentView extends JPanel {
 
     /** Fills the "All regions" table with the latest reading of every region and whether the user subscribed to it. */
     private void loadRegions() {
+        loadRegions(false);
+    }
+
+    private void loadRegions(boolean forceRefresh) {
+        List<String> districts = c.monitoring().activeDistricts();
+        UserProfile profile = user;
+        Theme.background(this, () -> regionRows(districts, profile, forceRefresh), rows -> {
+            Theme.fill(regionModel, rows);
+            refreshAlerts();
+        });
+    }
+
+    private List<Object[]> regionRows(List<String> districts, UserProfile profile, boolean forceRefresh) {
         List<Object[]> rows = new ArrayList<>();
-        for (String district : c.monitoring().getDistrictNames()) {
-            String subscribed = user.isSubscribedTo(district) ? "Subscribed" : "";
+        for (String district : districts) {
+            String subscribed = profile.isSubscribedTo(district) ? "Subscribed" : "";
             try {
-                String pid = c.monitoring().findPointForDistrict(district).map(MonitoringPoint::pointId)
-                        .orElseThrow(() -> new IOException("No active monitoring point"));
-                AirQualityReading r = c.airQuality().getCurrentReading(pid);
-                rows.add(new Object[]{district, r.usAqi(), r.category(), r.validTime().format(FMT), subscribed});
-            } catch (IOException ex) {
+                String pid = frame.pointForDistrict(district).id();
+                AirQualityReading r = forceRefresh ? c.airQuality().refresh(pid) : c.airQuality().getCurrentReading(pid);
+                rows.add(new Object[]{district, r.usAqi(), Theme.aqiCategory(r.usAqi()), r.validTime().format(FMT), subscribed});
+            } catch (RuntimeException ex) {
                 rows.add(new Object[]{district, "n/a", "No data", "-", subscribed});
             }
         }
-        Theme.fill(regionModel, rows);
+        return rows;
     }
 
     private void toggleSubscription() {
         int row = regionTable.getSelectedRow();
         if (row < 0) throw new IllegalArgumentException("Select a region first.");
         String region = String.valueOf(regionModel.getValueAt(row, 0));
-        List<String> subs = new ArrayList<>(user.subscribedDistricts());
+        List<String> subs = new ArrayList<>(user.districts());
         boolean removed = subs.removeIf(d -> d.equalsIgnoreCase(region));
         if (!removed) subs.add(region);
-        user = c.user().updateSubscriptions(user.username(), subs);
+        user = c.user().updateProfile(user.fullName(), user.groupType(), subs);
         frame.refreshSession(user);
         showSubscriptions();
         loadRegions();
@@ -312,26 +328,25 @@ public class ResidentView extends JPanel {
 
     private void showSubscriptions() {
         subscribedLabel.setText("Subscribed districts: "
-                + (user.subscribedDistricts().isEmpty() ? "-" : String.join(", ", user.subscribedDistricts())));
+                + (user.districts().isEmpty() ? "-" : String.join(", ", user.districts())));
     }
 
     private void findParks() {
         String pid = pointId(parkDistrict);
-        double km = ((Number) distanceSpinner.getValue()).doubleValue();
-        List<Object[]> rows = new ArrayList<>();
-        for (Recommendation r : c.recommendation().getRankedParks(pid, km)) {
-            rows.add(new Object[]{r.park().name(), r.park().districtId(), r.distanceKm(),
-                    r.usAqi() == null ? (Object) "n/a" : r.usAqi(), r.suitability()});
-        }
-        Theme.fill(parkModel, rows);
-        if (rows.isEmpty()) Theme.info(this, "No parks found within " + km + " km.");
+        Theme.background(this, () -> c.recommendation().getRecommendedParks(pid), parks -> {
+            List<Object[]> rows = new ArrayList<>();
+            for (Park park : parks) rows.add(new Object[]{park.name(), park.districtId(), park.latitude(), park.longitude()});
+            Theme.fill(parkModel, rows);
+            if (rows.isEmpty()) Theme.info(this, "No park recommendations are available for the current monitoring data.");
+        });
     }
 
     private void submitReport() {
         String where = reportLocation.getText().trim();
-        String text = (where.isEmpty() ? "" : "Location: " + where + "\n\n") + reportDescription.getText().trim();
-        c.report().submitReport(new Report("", user.username(), (String) reportType.getSelectedItem(), text,
-                pointId(reportDistrict), LocalDateTime.now(), "Submitted"));
+        String description = reportDescription.getText().trim();
+        if (description.isEmpty()) throw new IllegalArgumentException("Describe the environmental issue before submitting.");
+        String text = (where.isEmpty() ? "" : "Location: " + where + "\n\n") + description;
+        c.report().submitReport(new Report(user.username(), (String) reportType.getSelectedItem(), text, pointId(reportDistrict)));
         Theme.info(this, "Thank you. Your report was saved and is visible to environment officers.");
         reportLocation.setText("");
         reportDescription.setText("");
@@ -340,16 +355,16 @@ public class ResidentView extends JPanel {
 
     private void refreshAlerts() {
         List<Object[]> rows = new ArrayList<>();
-        for (PollutionAlert a : c.alert().getResidentAlerts(user)) {
-            rows.add(new Object[]{a.timestamp().format(FMT), a.districtId(), a.severity(), a.message()});
+        for (PollutionAlert a : c.alert().getResidentAlerts(user.username())) {
+            rows.add(new Object[]{a.getTimestamp().format(FMT), a.getDistrict(), a.getSeverity(), a.getMessage()});
         }
         Theme.fill(alertModel, rows);
     }
 
     /** Observer callback: a new alert for a subscribed district. Adds it to the table and shows a notification. */
     public void showAlert(PollutionAlert a) {
-        alertModel.insertRow(0, new Object[]{a.timestamp().format(FMT), a.districtId(), a.severity(), a.message()});
-        JOptionPane.showMessageDialog(this, a.message(), "Pollution alert - " + a.districtId(), JOptionPane.WARNING_MESSAGE);
+        alertModel.insertRow(0, new Object[]{a.getTimestamp().format(FMT), a.getDistrict(), a.getSeverity(), a.getMessage()});
+        JOptionPane.showMessageDialog(this, a.getMessage(), "Pollution alert - " + a.getDistrict(), JOptionPane.WARNING_MESSAGE);
     }
 
     // ---------- helpers ----------
@@ -366,6 +381,8 @@ public class ResidentView extends JPanel {
         l.setFont(Theme.BIG);
         return l;
     }
+
+    private record AirQualityResult(AirQualityReading current, List<AirQualityReading> forecast, String warning) { }
 
     private static JPanel metricCard(String caption, JLabel value, JLabel extra, JPanel card) {
         card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
