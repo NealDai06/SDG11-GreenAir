@@ -1,0 +1,12 @@
+[
+  {"parkId":"P001","name":"Taman Tugu","latitude":3.1523,"longitude":101.6872,"districtId":"Kuala Lumpur"},
+  {"parkId":"P002","name":"Taman Tasik Perdana","latitude":3.1430,"longitude":101.6860,"districtId":"Kuala Lumpur"},
+  {"parkId":"P003","name":"Taman Tasik Titiwangsa","latitude":3.1760,"longitude":101.7060,"districtId":"Kuala Lumpur"},
+  {"parkId":"P004","name":"Taman Jaya","latitude":3.1180,"longitude":101.6440,"districtId":"Petaling Jaya"},
+  {"parkId":"P005","name":"Taman Tasik Shah Alam","latitude":3.0730,"longitude":101.5260,"districtId":"Shah Alam"},
+  {"parkId":"P006","name":"Taman Awam Subang Jaya","latitude":3.0600,"longitude":101.5900,"districtId":"Subang Jaya"},
+  {"parkId":"P007","name":"Taman Rekreasi Ampang","latitude":3.1450,"longitude":101.7600,"districtId":"Ampang"},
+  {"parkId":"P008","name":"Taman Cheras Hartamas","latitude":3.1050,"longitude":101.7450,"districtId":"Cheras"},
+  {"parkId":"P009","name":"Taman Rekreasi Puchong","latitude":3.0300,"longitude":101.6200,"districtId":"Puchong"},
+  {"parkId":"P010","name":"Taman Rekreasi Klang","latitude":3.0500,"longitude":101.4500,"districtId":"Klang"}
+]

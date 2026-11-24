@@ -1,0 +1,90 @@
+[
+  {
+    "id": "MP001",
+    "name": "Kuala Lumpur Station",
+    "district": "Kuala Lumpur",
+    "latitude": "3.139",
+    "longitude": "101.6869",
+    "active": "true"
+  },
+  {
+    "id": "MP002",
+    "name": "Petaling Jaya Station",
+    "district": "Petaling Jaya",
+    "latitude": "3.1073",
+    "longitude": "101.6067",
+    "active": "true"
+  },
+  {
+    "id": "MP003",
+    "name": "Shah Alam Station",
+    "district": "Shah Alam",
+    "latitude": "3.0733",
+    "longitude": "101.5185",
+    "active": "true"
+  },
+  {
+    "id": "MP004",
+    "name": "Klang Station",
+    "district": "Klang",
+    "latitude": "3.0449",
+    "longitude": "101.4455",
+    "active": "true"
+  },
+  {
+    "id": "MP005",
+    "name": "Subang Jaya Station",
+    "district": "Subang Jaya",
+    "latitude": "3.0565",
+    "longitude": "101.5851",
+    "active": "true"
+  },
+  {
+    "id": "MP006",
+    "name": "Kajang Station",
+    "district": "Kajang",
+    "latitude": "2.9927",
+    "longitude": "101.7909",
+    "active": "true"
+  },
+  {
+    "id": "MP007",
+    "name": "Ampang Station",
+    "district": "Ampang",
+    "latitude": "3.15",
+    "longitude": "101.76",
+    "active": "true"
+  },
+  {
+    "id": "MP008",
+    "name": "Cheras Station",
+    "district": "Cheras",
+    "latitude": "3.1",
+    "longitude": "101.74",
+    "active": "true"
+  },
+  {
+    "id": "MP009",
+    "name": "Puchong Station",
+    "district": "Puchong",
+    "latitude": "3.0333",
+    "longitude": "101.6167",
+    "active": "true"
+  },
+  {
+    "id": "MP010",
+    "name": "Rawang Station",
+    "district": "Rawang",
+    "latitude": "3.3217",
+    "longitude": "101.5767",
+    "active": "true"
+  },
+  {
+    "id": "MP011",
+    "name": "Dehli",
+    "district": "India",
+    "latitude": "28.616273",
+    "longitude": "77.210355",
+    "active": "true"
+  }
+]

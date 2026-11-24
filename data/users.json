@@ -1,0 +1,29 @@
+[
+  {
+    "id": "U001",
+    "username": "admin",
+    "fullName": "System Administrator",
+    "role": "ADMINISTRATOR",
+    "groupType": "General public",
+    "status": "Active",
+    "districts": ""
+  },
+  {
+    "id": "U002",
+    "username": "officer",
+    "fullName": "Environment Officer",
+    "role": "ENVIRONMENT_OFFICER",
+    "groupType": "General public",
+    "status": "Active",
+    "districts": ""
+  },
+  {
+    "id": "U003",
+    "username": "resident",
+    "fullName": "Sample Resident",
+    "role": "RESIDENT",
+    "groupType": "General public",
+    "status": "Active",
+    "districts": "Petaling Jaya;Shah Alam;India"
+  }
+]
