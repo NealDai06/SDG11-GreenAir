@@ -1,16 +1,18 @@
-package graphicuserinterface.greenair.graphicuserinterface;
+package GraphicUserInterface;
 
 
-import graphicuserinterface.greenair.airqualitycontroller.AirQualityController;
-import graphicuserinterface.greenair.alertcontroller.AlertController;
-import graphicuserinterface.greenair.alertcontroller.AlertObserver;
-import graphicuserinterface.greenair.alertcontroller.OfficerAlertObserver;
-import graphicuserinterface.greenair.alertcontroller.ResidentAlertObserver;
-import graphicuserinterface.greenair.monitoringcontroller.MonitoringPointController;
-import graphicuserinterface.greenair.recommendationcontroller.RecommendationController;
-import graphicuserinterface.greenair.reportcontroller.ReportController;
-import graphicuserinterface.greenair.usercontroller.UserController;
-import graphicuserinterface.greenair.usercontroller.UserProfile;
+import AirQualityController.AirQualityController;
+import AlertController.AlertController;
+import AlertController.AlertObserver;
+import AlertController.PollutionAlert;
+import AlertController.OfficerAlertObserver;
+import AlertController.ResidentAlertObserver;
+import MonitoringPointController.MonitoringPointController;
+import MonitoringPointController.MonitoringPoint;
+import RecommendationController.RecommendationController;
+import ReportController.ReportController;
+import UserController.UserController;
+import UserController.UserProfile;
 
 import javax.swing.*;
 import java.awt.*;
@@ -68,12 +70,12 @@ public class MainFrame extends JFrame {
     /** Opens the dashboard that matches the user's role and registers the matching alert observer. */
     public void openDashboard(UserProfile user) {
         currentUser = user;
+        attachObserver(user);
         switch (user.role()) {
             case RESIDENT -> { residentView.open(user); show(RESIDENT); }
             case ENVIRONMENT_OFFICER -> { officerView.open(user); show(OFFICER); }
             case ADMINISTRATOR -> { adminView.open(user); show(ADMIN); }
         }
-        attachObserver(user);
     }
 
     /** Called when the logged-in user's profile changes (e.g. new region subscriptions) so alerts follow the change. */
@@ -85,18 +87,41 @@ public class MainFrame extends JFrame {
     private void attachObserver(UserProfile user) {
         if (activeObserver != null) controllers.alert().removeObserver(activeObserver);
         activeObserver = switch (user.role()) {
-            case RESIDENT -> new ResidentAlertObserver(user, a -> SwingUtilities.invokeLater(() -> residentView.showAlert(a)));
-            case ENVIRONMENT_OFFICER -> new OfficerAlertObserver(user, a -> SwingUtilities.invokeLater(() -> officerView.showAlert(a)));
+            case RESIDENT -> new ResidentAlertObserver(user.username(), user.districts()) {
+                @Override public void update(PollutionAlert alert) {
+                    if (subscribesTo(alert.getDistrict())) {
+                        dispatchAlert(user, () -> residentView.showAlert(alert));
+                    }
+                }
+            };
+            case ENVIRONMENT_OFFICER -> new OfficerAlertObserver(user.username()) {
+                @Override public void update(PollutionAlert alert) {
+                    dispatchAlert(user, () -> officerView.showAlert(alert));
+                }
+            };
             case ADMINISTRATOR -> null;
         };
         if (activeObserver != null) controllers.alert().registerObserver(activeObserver);
+    }
+
+    private void dispatchAlert(UserProfile recipient, Runnable display) {
+        SwingUtilities.invokeLater(() -> {
+            if (currentUser != null && currentUser.username().equals(recipient.username())) display.run();
+        });
     }
 
     public void logout() {
         if (activeObserver != null) controllers.alert().removeObserver(activeObserver);
         activeObserver = null;
         currentUser = null;
+        controllers.user().logOut();
         loginView.reset();
         show(LOGIN);
+    }
+
+    MonitoringPoint pointForDistrict(String district) {
+        return controllers.monitoring().getAllPoints().stream()
+                .filter(point -> point.active() && point.district().equalsIgnoreCase(district))
+                .findFirst().orElseThrow(() -> new IllegalArgumentException("No active monitoring point in " + district + "."));
     }
 }
