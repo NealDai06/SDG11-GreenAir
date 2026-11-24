@@ -1,6 +1,5 @@
 /**
- * Retrieves and stores air quality readings. The application supplies a lookup
- * for coordinates from the monitoring point module and the pollution alert
- * service with its threshold-check method when constructing the air quality service.
+ * Retrieves and stores air quality readings using the local monitoring point
+ * service and forwards fresh readings to the existing pollution alert service.
  */
 package AirQualityController;

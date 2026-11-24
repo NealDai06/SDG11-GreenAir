@@ -9,7 +9,7 @@ import java.util.Map;
 import java.util.regex.Pattern;
 
 /** Reads the Open-Meteo response and history file using only the JDK. */
-final class AirQualityJson {
+public final class AirQualityJson {
     private static final Pattern NUMBER = Pattern.compile("-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?(?:[eE][+-]?[0-9]+)?");
     private static final int JSON_CONTROL_LIMIT = 0x20;
     private static final int UNICODE_ESCAPE_LENGTH = 4;
@@ -22,7 +22,8 @@ final class AirQualityJson {
         cursor = text.startsWith("\uFEFF") ? 1 : 0;
     }
 
-    static Object parse(String text) {
+    /** Parses a JSON value, including nested objects and arrays. */
+    public static Object parse(String text) {
         AirQualityJson parser = new AirQualityJson(text);
         Object value = parser.readValue();
         parser.skipWhitespace();
@@ -30,22 +31,26 @@ final class AirQualityJson {
         return value;
     }
 
-    static Map<?, ?> object(Object value) {
+    /** Requires a JSON object value. */
+    public static Map<?, ?> object(Object value) {
         if (value instanceof Map<?, ?> map) return map;
         throw new IllegalArgumentException("Expected a JSON object.");
     }
 
-    static List<?> array(Object value) {
+    /** Requires a JSON array value. */
+    public static List<?> array(Object value) {
         if (value instanceof List<?> list) return list;
         throw new IllegalArgumentException("Expected a JSON array.");
     }
 
-    static String string(Object value) {
+    /** Requires a JSON string value. */
+    public static String string(Object value) {
         if (value instanceof String s) return s;
         throw new IllegalArgumentException("Expected a JSON string.");
     }
 
-    static double number(Object value) {
+    /** Reads a number, also accepting strings from legacy local JSON files. */
+    public static double number(Object value) {
         if (value instanceof Number n) return n.doubleValue();
         // Accept numeric strings from the original local-data prototype.
         return Double.parseDouble(string(value));
@@ -159,7 +164,8 @@ final class AirQualityJson {
         return new IllegalArgumentException("Invalid JSON at offset " + cursor + ".");
     }
 
-    static String quote(String value) {
+    /** Escapes a string for storage in local JSON files. */
+    public static String quote(String value) {
         StringBuilder result = new StringBuilder("\"");
         for (char ch : value.toCharArray()) {
             switch (ch) {
