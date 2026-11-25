@@ -48,4 +48,10 @@ public class Report {
     public LocalDateTime getSubmittedAt() { return submittedAt; }
     public boolean isValidated() { return validated; }
     public void setValidated(boolean validated) { this.validated = validated; }
+
+    /** Checks the mandatory fields used when submitting a citizen report. */
+    public boolean validate() {
+        return username != null && !username.isBlank() && type != null && !type.isBlank()
+                && description != null && !description.isBlank() && pointId != null && !pointId.isBlank();
+    }
 }
