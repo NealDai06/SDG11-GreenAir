@@ -11,8 +11,7 @@ public class ReportService {
 
     public void submitReport(Report report) {
         Objects.requireNonNull(report, "Report cannot be null");
-        if (blank(report.getUsername()) || blank(report.getType())
-                || blank(report.getDescription()) || blank(report.getPointId())) {
+        if (!report.validate()) {
             throw new IllegalArgumentException("Report fields cannot be empty");
         }
         // validated is reserved for later verification, not input validation.
@@ -30,7 +29,6 @@ public class ReportService {
         catch (RuntimeException ex) { report.setStatus(previous); throw ex; }
     }
 
-    private boolean blank(String value) { return value == null || value.isBlank(); }
     public List<Report> getAllReports() { return reports.findAll(); }
     public Report getReportById(String reportId) { return reports.findById(reportId); }
 }
