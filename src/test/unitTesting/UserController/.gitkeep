@@ -1,0 +1,105 @@
+package UserController;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+
+import java.nio.file.Path;
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+/**
+ * Unit tests of {@link UserController}. Every test works on its own temporary users.json,
+ * so the real data file is never touched and no GUI is needed.
+ */
+class UserControllerTest {
+
+    private static final String ADMIN_ID = "U001";
+    private static final String RESIDENT_ID = "U002";
+
+    @TempDir
+    Path tempDir;
+
+    private ProfileRepository repository;
+    private UserController controller;
+
+    @BeforeEach
+    void setUp() {
+        repository = new ProfileRepository(tempDir.resolve("users.json"));
+        repository.save(new UserProfile("", "admin", "System Administrator",
+                UserRole.ADMINISTRATOR, GroupType.GENERAL_PUBLIC, true, List.of()));          // U001
+        repository.save(new UserProfile("", "resident1", "Aisyah Rahman",
+                UserRole.RESIDENT, GroupType.CHILDREN, true, List.of("Klang")));              // U002
+        controller = new UserController(repository);
+    }
+
+    @Test
+    void logIn_validUsernameInDifferentCase_returnsProfileAndStartsSession() {
+        UserProfile profile = controller.logIn("ADMIN");
+
+        assertAll(
+                () -> assertEquals("admin", profile.username()),
+                () -> assertEquals(UserRole.ADMINISTRATOR, profile.role()),
+                () -> assertTrue(controller.isLoggedIn()),
+                () -> assertTrue(controller.isAdministrator()),
+                () -> assertEquals(profile, controller.currentUser())
+        );
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", "   ", "ghost_user"})
+    void logIn_blankOrUnknownUsername_throwsRequestExceptionAndNoSession(String username) {
+        assertThrows(UserService.UserRequestException.class, () -> controller.logIn(username));
+
+        assertFalse(controller.isLoggedIn());
+    }
+
+    @Test
+    void register_validFormWithDuplicateDistricts_storesResidentWithCleanedDistricts() {
+        UserProfile created = controller.register("  newuser  ", "New User", GroupType.ELDERLY,
+                List.of("Klang", " Klang ", "", "Shah Alam"));
+
+        assertAll(
+                () -> assertEquals("U003", created.id()),
+                () -> assertEquals("newuser", created.username()),
+                () -> assertEquals(UserRole.RESIDENT, created.role()),
+                () -> assertEquals(GroupType.ELDERLY, created.groupType()),
+                () -> assertEquals(List.of("Klang", "Shah Alam"), created.districts()),
+                () -> assertTrue(repository.findByUsername("newuser").isPresent())
+        );
+    }
+
+    @Test
+    void changeRole_callerIsResident_throwsRequestExceptionAndRoleUnchanged() {
+        controller.logIn("resident1");
+
+        UserService.UserRequestException error = assertThrows(UserService.UserRequestException.class,
+                () -> controller.changeRole(ADMIN_ID, UserRole.ENVIRONMENT_OFFICER));
+
+        assertAll(
+                () -> assertEquals("Only administrators may change user roles.", error.getMessage()),
+                () -> assertEquals(UserRole.ADMINISTRATOR, repository.findById(ADMIN_ID).orElseThrow().role())
+        );
+    }
+
+    @Test
+    void deleteAccount_administratorDeletesOwnAccount_throwsRequestExceptionAndAccountKept() {
+        controller.logIn("admin");
+
+        UserService.UserRequestException error = assertThrows(UserService.UserRequestException.class,
+                () -> controller.deleteAccount(ADMIN_ID));
+
+        assertAll(
+                () -> assertEquals("You cannot delete the account you are logged in with.", error.getMessage()),
+                () -> assertTrue(repository.findById(ADMIN_ID).isPresent()),
+                () -> assertTrue(repository.findById(RESIDENT_ID).isPresent())
+        );
+    }
+}
